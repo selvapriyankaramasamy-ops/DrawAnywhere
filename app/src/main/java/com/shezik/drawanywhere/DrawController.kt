@@ -16,6 +16,10 @@ with this program. If not, see <https://www.gnu.org/licenses/>.
 
 package com.shezik.drawanywhere
 
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Paint
+import android.graphics.RectF
 import androidx.compose.ui.geometry.Offset
 import com.shezik.drawanywhere.drawing.StrokeTool
 import com.shezik.drawanywhere.drawing.ToolContext
@@ -25,6 +29,8 @@ import com.shezik.drawanywhere.model.PenConfig
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlin.math.min
+import kotlin.math.roundToInt
 
 /**
  * Owns the stroke list and undo/redo stack. Drawing logic is delegated to
@@ -140,5 +146,81 @@ class DrawController(initialConfig: PenConfig) {
             }
         }
         notifyChanged()
+    }
+
+    // ── Export ──────────────────────────────────────────────────
+
+    companion object {
+        /** Longest edge of an exported bitmap, to guard against OOM on huge infinite-canvas drawings. */
+        private const val MAX_EXPORT_DIMENSION = 4096
+        private const val EXPORT_PADDING_PX = 32f
+    }
+
+    /**
+     * Bounding box (in canvas/world space) of every saveable stroke, expanded by each
+     * stroke's own width so thick strokes aren't clipped at their edges. Ephemeral
+     * strokes (e.g. the laser pointer) are excluded — they're a transient overlay,
+     * not drawn content. Returns null if there's nothing to export.
+     */
+    fun computeContentBounds(): RectF? {
+        val saveable = _strokeList.filterNot { it.penType.isEphemeral }
+        if (saveable.isEmpty()) return null
+
+        var bounds: RectF? = null
+        for (stroke in saveable) {
+            if (stroke.points.isEmpty()) continue
+            val halfWidth = stroke.width / 2f
+            for (point in stroke.points) {
+                val strokeBounds = RectF(
+                    point.x - halfWidth, point.y - halfWidth,
+                    point.x + halfWidth, point.y + halfWidth
+                )
+                if (bounds == null) bounds = strokeBounds else bounds.union(strokeBounds)
+            }
+        }
+        return bounds
+    }
+
+    /**
+     * Renders all saveable strokes to an offscreen [Bitmap] at 1:1 canvas scale
+     * (viewport zoom/pan don't apply — strokes are stored in world space already),
+     * cropped and padded to their bounding box. Downscales proportionally if the
+     * content would exceed [MAX_EXPORT_DIMENSION] in either dimension.
+     *
+     * @return null if there is nothing to export.
+     */
+    fun renderToBitmap(padding: Float = EXPORT_PADDING_PX): Bitmap? {
+        val bounds = computeContentBounds() ?: return null
+
+        val rawWidth = bounds.width() + padding * 2
+        val rawHeight = bounds.height() + padding * 2
+        if (rawWidth <= 0f || rawHeight <= 0f) return null
+
+        val scale = min(
+            1f,
+            MAX_EXPORT_DIMENSION / maxOf(rawWidth, rawHeight)
+        )
+
+        val width = (rawWidth * scale).roundToInt().coerceAtLeast(1)
+        val height = (rawHeight * scale).roundToInt().coerceAtLeast(1)
+
+        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bitmap)
+        val paint = Paint().apply {
+            style = Paint.Style.STROKE
+            strokeCap = Paint.Cap.ROUND
+            strokeJoin = Paint.Join.ROUND
+            isAntiAlias = true
+        }
+
+        canvas.scale(scale, scale)
+        canvas.translate(padding - bounds.left, padding - bounds.top)
+
+        for (stroke in _strokeList) {
+            if (stroke.penType.isEphemeral) continue
+            stroke.render(canvas, paint)
+        }
+
+        return bitmap
     }
 }

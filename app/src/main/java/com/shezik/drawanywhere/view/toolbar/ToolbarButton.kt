@@ -78,7 +78,9 @@ internal fun createAllToolbarButtons(
     onChangeFingerDrawingEnabled: (Boolean) -> Unit,
     onCycleLockMode: () -> Unit,
     lockMode: LockMode,
-    onQuitApplication: () -> Unit
+    onQuitApplication: () -> Unit,
+    canSaveImage: Boolean = false,
+    onSaveImage: () -> Unit = {}
 ): List<ToolbarButton> = listOf(
     ToolbarButton(
         id = "visibility",
@@ -149,6 +151,13 @@ internal fun createAllToolbarButtons(
         contentDescription = stringResource(R.string.redo),
         isEnabled = uiState.canvasVisible && canRedo,
         onClick = onRedo
+    ),
+    ToolbarButton(
+        id = "save_image",
+        icon = Icons.Default.Save,
+        contentDescription = stringResource(R.string.save_image),
+        isEnabled = uiState.canvasVisible && canSaveImage,
+        onClick = onSaveImage
     ),
     ToolbarButton(
         id = "settings",

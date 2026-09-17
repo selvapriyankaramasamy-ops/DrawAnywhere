@@ -16,6 +16,8 @@ with this program. If not, see <https://www.gnu.org/licenses/>.
 
 package com.shezik.drawanywhere
 
+import android.content.Context
+import android.net.Uri
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.ViewModel
@@ -23,9 +25,11 @@ import androidx.lifecycle.viewModelScope
 import com.shezik.drawanywhere.model.PenConfig
 import com.shezik.drawanywhere.model.PenType
 import com.shezik.drawanywhere.model.StrokeModifier
+import com.shezik.drawanywhere.util.ImageSaver
 import com.shezik.drawanywhere.view.canvas.CanvasViewport
 import com.shezik.drawanywhere.view.canvas.LockMode
 import com.shezik.drawanywhere.view.toolbar.ToolbarOrientation
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -37,6 +41,7 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 data class ServiceState(
     val toolbarPosition: Offset = Offset(32f, 64f),
@@ -62,7 +67,7 @@ data class UiState(
         "undo", "clear", "tool_controls", "color_picker", "zoom_lock"
     ),
     val secondDrawerButtons: Set<String> = setOf(
-        "passthrough", "redo", "settings"
+        "passthrough", "redo", "save_image", "settings"
     ),
     val secondDrawerPinnedButtons: Set<String> = emptySet()
 ) {
@@ -245,6 +250,27 @@ class DrawViewModel(
     fun undo() = controller.undo()
     fun redo() = controller.redo()
 
+    /**
+     * Renders the current canvas content to a PNG and writes it to the device's
+     * gallery (Pictures/DrawAnywhere). Bitmap rendering and the MediaStore write
+     * both happen off the main thread so the toolbar doesn't stutter on a large
+     * drawing; [onResult] is invoked back on the main thread.
+     */
+    fun saveCanvasAsImage(context: Context, onResult: (SaveImageResult) -> Unit) {
+        viewModelScope.launch {
+            val result = withContext(Dispatchers.Default) {
+                val bitmap = controller.renderToBitmap()
+                    ?: return@withContext SaveImageResult.NothingToSave
+
+                val uri = ImageSaver.saveToGallery(context.applicationContext, bitmap)
+                bitmap.recycle()
+
+                if (uri != null) SaveImageResult.Success(uri) else SaveImageResult.Failed
+            }
+            onResult(result)
+        }
+    }
+
     private var dimmingJob: Job? = null
 
     fun resetToolbarTimer() {
@@ -363,4 +389,10 @@ class DrawViewModel(
 sealed class DismissTarget {
     object Hidden : DismissTarget()
     data class Visible(val active: Boolean) : DismissTarget()
+}
+
+sealed class SaveImageResult {
+    data class Success(val uri: Uri) : SaveImageResult()
+    object NothingToSave : SaveImageResult()
+    object Failed : SaveImageResult()
 }
