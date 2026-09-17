@@ -21,8 +21,14 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+      # ubuntu-latest GitHub runners come with the Android SDK, platforms,
+      # and build-tools preinstalled (ANDROID_HOME already set) — no
+      # separate SDK setup action needed. If this project's compileSdk
+      # (37) isn't already on the image, AGP will auto-download it during
+      # the build; pre-accepting licenses here avoids that hanging on an
+      # unattended license prompt.
+      - name: Accept Android SDK licenses
+        run: yes | sdkmanager --licenses > /dev/null || true
 
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
