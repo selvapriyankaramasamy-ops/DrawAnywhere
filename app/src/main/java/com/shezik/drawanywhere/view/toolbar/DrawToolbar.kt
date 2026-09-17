@@ -9,6 +9,7 @@ import androidx.compose.animation.scaleOut
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import android.widget.Toast
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -19,9 +20,13 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.shezik.drawanywhere.DrawViewModel
+import com.shezik.drawanywhere.R
+import com.shezik.drawanywhere.SaveImageResult
 import com.shezik.drawanywhere.util.scrollFadingEdges
 import com.shezik.drawanywhere.ui.theme.DrawAnywhereTheme
 import com.shezik.drawanywhere.ui.theme.Spacing
@@ -42,6 +47,11 @@ fun DrawToolbar(
     val haptics = LocalHapticFeedback.current
     val hScrollState = rememberScrollState()
     val vScrollState = rememberScrollState()
+
+    val context = LocalContext.current
+    val savedMessage = stringResource(R.string.canvas_saved)
+    val saveFailedMessage = stringResource(R.string.canvas_save_failed)
+    val nothingToSaveMessage = stringResource(R.string.nothing_to_save)
 
     val allButtonsMap = createAllToolbarButtons(
         uiState = uiState,
@@ -65,7 +75,18 @@ fun DrawToolbar(
         onChangeFingerDrawingEnabled = viewModel::setFingerDrawingEnabled,
         onCycleLockMode = viewModel::cycleLockMode,
         lockMode = lockMode,
-        onQuitApplication = viewModel::quitApplication
+        onQuitApplication = viewModel::quitApplication,
+        canSaveImage = canClearCanvas,
+        onSaveImage = {
+            viewModel.saveCanvasAsImage(context) { result ->
+                val message = when (result) {
+                    is SaveImageResult.Success -> savedMessage
+                    SaveImageResult.NothingToSave -> nothingToSaveMessage
+                    SaveImageResult.Failed -> saveFailedMessage
+                }
+                Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+            }
+        }
     ).associateBy { it.id }
 
     DrawAnywhereTheme {

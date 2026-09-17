@@ -34,6 +34,10 @@
     <string name="apply_color">应用</string>
     <string name="disable_passthrough">禁用触摸透传</string>
     <string name="redo">重做</string>
+    <string name="save_image">保存为图片</string>
+    <string name="canvas_saved">已保存到 Pictures/DrawAnywhere</string>
+    <string name="canvas_save_failed">保存失败</string>
+    <string name="nothing_to_save">当前没有可保存的内容</string>
     <string name="settings">设置</string>
     <string name="enable_passthrough">启用触摸透传</string>
     <string name="lock_zoom">锁定缩放</string>

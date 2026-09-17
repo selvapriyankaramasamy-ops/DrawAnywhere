@@ -33,6 +33,10 @@
     <string name="apply_color">APPLY</string>
     <string name="disable_passthrough">Disable passthrough</string>
     <string name="redo">Redo</string>
+    <string name="save_image">Save as image</string>
+    <string name="canvas_saved">Saved to Pictures/DrawAnywhere</string>
+    <string name="canvas_save_failed">Couldn\'t save image</string>
+    <string name="nothing_to_save">Nothing to save yet</string>
     <string name="settings">Settings</string>
     <string name="enable_passthrough">Enable passthrough</string>
     <string name="lock_zoom">Lock zoom</string>
